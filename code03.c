@@ -1,297 +1,624 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <time.h> // เพิ่มเข้ามาเพื่อใช้ฟังก์ชันเกี่ยวกับสตริง เช่น strstr, strcmp
 
-// =======================================================
-// COLOR DEFINITIONS (ชุดโค้ดสี ANSI)
-// =======================================================
-#define COLOR_RESET   "\x1b[0m"
-#define COLOR_RED     "\x1b[31m"
-#define COLOR_GREEN   "\x1b[32m"
-#define COLOR_YELLOW  "\x1b[33m"
-#define COLOR_BLUE    "\x1b[34m"
-#define COLOR_MAGENTA "\x1b[35m"
-#define COLOR_CYAN    "\x1b[36m"
-
-// =======================================================
-// UI/UX HELPER FUNCTIONS
-// =======================================================
-
-void clearScreen() {
-#ifdef _WIN32
-    system("cls");
-#else
-    system("clear");
-#endif
-}
-
-void pressEnterToContinue() {
-    printf(COLOR_YELLOW "\n+--------------------------------------------------+\n" COLOR_RESET);
-    printf(COLOR_YELLOW "|     กดปุ่ม Enter เพื่อกลับสู่เมนูหลัก...        |"     COLOR_RESET);
-    printf(COLOR_YELLOW "\n+--------------------------------------------------+\n" COLOR_RESET);
-    // ล้าง buffer ที่อาจมีค่าค้างอยู่ก่อนรับ Enter
-    while (getchar() != '\n');
-    getchar();
-}
-
-void printTableHeader() {
-    printf("+-----------------+---------------------------+--------------+-----------------+\n");
-    printf("| " COLOR_BLUE "%-15s" COLOR_RESET " | " COLOR_BLUE "%-25s" COLOR_RESET " | " COLOR_BLUE "%-12s" COLOR_RESET " | " COLOR_BLUE "%-15s" COLOR_RESET " |\n", "ReceiptID", "PayerName", "FineAmount", "PaymentDate");
-    printf("+-----------------+---------------------------+--------------+-----------------+\n");
-}
-
-void printTableRow(char* line) {
-    char tempLine[1024];
-    strcpy(tempLine, line);
-
-    char* id = strtok(tempLine, ",\n");
-    char* name = strtok(NULL, ",\n");
-    char* amountStr = strtok(NULL, ",\n");
-    char* date = strtok(NULL, ",\n");
-
-    if (id && name && amountStr && date) {
-        printf("| %-15s | %-25s | %-12s | %-15s |\n", id, name, amountStr, date);
-    }
-}
-
-// =======================================================
-// CORE LOGIC FUNCTIONS
-// =======================================================
-
-// Function Prototypes
-void InitializeDataFile();
-void display_menu();
+// --- Function Prototypes ---
 void clearInputBuffer();
 void ReadCsv();
 void AddFineData();
-void SearchFineData();
-void UpdateFineData();
-void DeleteFineData();
+void SearchFineData(); // ฟังก์ชันค้นหาข้อมูล
+void UpdateFineData(); // ฟังก์ชันอัปเดตข้อมูล
+void DeleteFineData(); // ฟังก์ชันลบข้อมูล
 
-// Main Program
-int main() {
-    InitializeDataFile();
-    int choice = 0;
-    do {
-        clearScreen();
-        display_menu();
-        
-        if (scanf("%d", &choice) != 1) {
-            printf(COLOR_RED "\n[ERROR] กรุณาป้อนข้อมูลเป็นตัวเลขเท่านั้น!\n" COLOR_RESET);
-            clearInputBuffer();
-            pressEnterToContinue();
-            continue;
-        }
-        clearInputBuffer();
-
-        switch (choice) {
-            case 1: ReadCsv(); break;
-            case 2: AddFineData(); break;
-            case 3: SearchFineData(); break;
-            case 4: UpdateFineData(); break;
-            case 5: DeleteFineData(); break;
-            case 6: 
-                clearScreen();
-                printf(COLOR_CYAN "ขอบคุณที่ใช้บริการโปรแกรม\n" COLOR_RESET); 
-                break;
-            default: 
-                printf(COLOR_RED "\n[ERROR] ตัวเลือกไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง\n" COLOR_RESET); 
-                break;
-        }
-
-        if (choice > 0 && choice < 6) {
-            pressEnterToContinue();
-        }
-
-    } while (choice != 6);
-    
-    return 0;
+// ---------------------------
+// --- ฟังก์ชันเสริมสำหรับแปลงสตริงเป็นตัวพิมพ์เล็ก ---
+void toLowerCase(char *str) {
+    for (int i = 0; str[i]; i++) {
+        str[i] = tolower((unsigned char)str[i]);
+    }
 }
-
-// Function Definitions
-void display_menu() {
-    printf(COLOR_CYAN "╔════════════════════════════════════════╗\n" COLOR_RESET);
-    printf(COLOR_CYAN "║" COLOR_YELLOW "      ระบบบันทึกข้อมูลการจ่ายค่าปรับ     " COLOR_CYAN "║\n" COLOR_RESET);
-    printf(COLOR_CYAN "╠════════════════════════════════════════╣\n" COLOR_RESET);
-    printf(COLOR_CYAN "║" COLOR_RESET "  1. แสดงข้อมูลค่าปรับทั้งหมด (Read)      " COLOR_CYAN "║\n" COLOR_RESET);
-    printf(COLOR_CYAN "║" COLOR_RESET "  2. เพิ่มข้อมูลค่าปรับใหม่ (Add)         " COLOR_CYAN "║\n" COLOR_RESET);
-    printf(COLOR_CYAN "║" COLOR_RESET "  3. ค้นหาข้อมูลค่าปรับ (Search)        " COLOR_CYAN "║\n" COLOR_RESET);
-    printf(COLOR_CYAN "║" COLOR_RESET "  4. อัพเดทข้อมูลค่าปรับ (Update)      " COLOR_CYAN "║\n" COLOR_RESET);
-    printf(COLOR_CYAN "║" COLOR_RESET "  5. ลบข้อมูลค่าปรับ (Delete)          " COLOR_CYAN "║\n" COLOR_RESET);
-    printf(COLOR_CYAN "║" COLOR_RED "  6. ออกจากโปรแกรม                    " COLOR_CYAN "║\n" COLOR_RESET);
-    printf(COLOR_CYAN "╚════════════════════════════════════════╝\n" COLOR_RESET);
-    printf(COLOR_MAGENTA "กรุณาเลือกเมนู: " COLOR_RESET);
-}
-
 void clearInputBuffer() {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
 }
 
-void InitializeDataFile() {
-    FILE *file = fopen("test.csv", "r");
-    if (file == NULL) {
-        clearScreen();
-        printf(COLOR_YELLOW "ไม่พบไฟล์ test.csv, กำลังสร้างไฟล์พร้อมข้อมูลเริ่มต้น...\n" COLOR_RESET);
-        file = fopen("test.csv", "w");
-        if (file == NULL) {
-            printf(COLOR_RED "Error: ไม่สามารถสร้างไฟล์ test.csv ได้\n" COLOR_RESET);
-            exit(1);
-        }
-        fprintf(file, "ReceiptID,PayerName,FineAmount,PaymentDate\n");
-        fprintf(file, "F001,Somchai Jaidee,300,2025-08-11\n");
-        fprintf(file, "F002,Jane Smith,500,2025-08-12\n");
-        fprintf(file, "F003,Peter Jones,1000,2025-08-13\n");
-        fprintf(file, "F004,Somsri Rakthai,300,2025-08-14\n");
-        fprintf(file, "F005,David Copper,200,2025-08-15\n");
-        fprintf(file, "F006,Maria Garcia,750,2025-08-16\n");
-        fprintf(file, "F007,John Wick,2000,2025-08-17\n");
-        fprintf(file, "F008,Tony Stark,5000,2025-08-18\n");
-        fprintf(file, "F009,Lisa Manoban,400,2025-08-19\n");
-        fprintf(file, "F010,Keanu Reeves,500,2025-08-20\n");
-        fprintf(file, "F011,Suda Makmee,300,2025-08-21\n");
-        fprintf(file, "F012,Chris Evans,1200,2025-08-22\n");
-        fprintf(file, "F013,Pita Limjaroenrat,600,2025-08-23\n");
-        fprintf(file, "F014,Elon Musk,10000,2025-08-24\n");
-        fprintf(file, "F015,Taylor Swift,800,2025-08-25\n");
-        printf(COLOR_GREEN "สร้างไฟล์สำเร็จ!\n" COLOR_RESET);
-        pressEnterToContinue();
-    }
-    if (file != NULL) fclose(file);
-}
-
+// ============== 🧾 ฟังก์ชันอ่านข้อมูล (Choice 1) - แก้ไขปัญหาการแสดงผล ==============
 void ReadCsv() {
     FILE *Read = fopen("test.csv", "r");
     if (Read == NULL) {
-        printf(COLOR_RED "\n[ERROR] ไม่สามารถเปิดไฟล์ test.csv ได้\n" COLOR_RESET); return;
+        printf("Error: ไม่สามารถเปิดไฟล์ test.csv ได้ หรือไฟล์ยังไม่มีข้อมูล\n\n");
+        return;
     }
+
     char line[1024];
-    printf("\n");
-    printTableHeader();
-    fgets(line, sizeof(line), Read); // Skip Header
-    while (fgets(line, sizeof(line), Read)) {
-        printTableRow(line);
+
+    // อ่านและข้ามบรรทัดแรก (Header)
+    if (fgets(line, sizeof(line), Read) == NULL) {
+        printf("ไฟล์ test.csv ว่างเปล่า ไม่มีข้อมูลที่จะแสดง\n\n");
+        fclose(Read);
+        return;
     }
-    printf("+-----------------+---------------------------+--------------+-----------------+\n");
+
+    char receiptIds[1000][10];
+    char payerNames[1000][100];
+    int fineAmounts[1000];
+    char paymentDates[1000][11];
+    int recordCount = 0;
+
+    // อ่านข้อมูลจริงจากไฟล์
+    while (fgets(line, sizeof(line), Read) && recordCount < 1000) {
+        // --- ส่วนที่แก้ไขที่ 1: ลบทั้ง \r และ \n ที่ท้ายบรรทัด ---
+        line[strcspn(line, "\r\n")] = 0;
+
+        // ข้ามบรรทัดว่างที่อาจมีในไฟล์
+        if (strlen(line) == 0) {
+            continue;
+        }
+
+        // --- ส่วนที่แก้ไขที่ 2: ปรับปรุงการแยกข้อมูล ---
+        char *id = strtok(line, ",");
+        char *name = strtok(NULL, ",");
+        char *fine = strtok(NULL, ",");
+        char *date = strtok(NULL, ","); // อ่านข้อมูลส่วนที่ 4
+
+        if (id && name && fine && date) {
+            strcpy(receiptIds[recordCount], id);
+            strcpy(payerNames[recordCount], name);
+            fineAmounts[recordCount] = atoi(fine);
+            strcpy(paymentDates[recordCount], date);
+            recordCount++;
+        }
+    }
     fclose(Read);
+
+    if (recordCount == 0) {
+        printf("ไฟล์มีเพียงหัวข้อ ไม่มีข้อมูลที่จะแสดง\n\n");
+        return;
+    }
+
+    // จัดเรียงข้อมูล (Sorting) โดยใช้ Bubble Sort (เหมือนเดิม)
+    for (int i = 0; i < recordCount - 1; i++) {
+        for (int j = 0; j < recordCount - i - 1; j++) {
+            if (strcmp(receiptIds[j], receiptIds[j + 1]) > 0) {
+                // สลับข้อมูลในทุกๆ Array
+                char tempId[10]; strcpy(tempId, receiptIds[j]); strcpy(receiptIds[j], receiptIds[j + 1]); strcpy(receiptIds[j + 1], tempId);
+                char tempName[100]; strcpy(tempName, payerNames[j]); strcpy(payerNames[j], payerNames[j + 1]); strcpy(payerNames[j + 1], tempName);
+                int tempFine = fineAmounts[j]; fineAmounts[j] = fineAmounts[j + 1]; fineAmounts[j + 1] = tempFine;
+                char tempDate[11]; strcpy(tempDate, paymentDates[j]); strcpy(paymentDates[j], paymentDates[j + 1]); strcpy(paymentDates[j + 1], tempDate);
+            }
+        }
+    }
+
+    // แสดงผลข้อมูลที่เรียงแล้วในรูปแบบตาราง
+    printf("\n\n+--------------------------------------------------------------------------------+\n");
+    printf("|                              ข้อมูลค่าปรับทั้งหมด                             |\n");
+    printf("+------------+--------------------------------+--------------+-----------------+\n");
+    printf("| ReceiptID  | PayerName                      | FineAmount   | PaymentDate     |\n");
+    printf("+------------+--------------------------------+--------------+-----------------+\n");
+
+    for (int i = 0; i < recordCount; i++) {
+        printf("| %-10s | %-30s | %-12d | %-15s |\n", 
+               receiptIds[i], 
+               payerNames[i], 
+               fineAmounts[i], 
+               paymentDates[i]);
+    }
+
+    printf("+------------+--------------------------------+--------------+-----------------+\n");
+    printf("| Total Records: %-60d |\n", recordCount);
+    printf("+--------------------------------------------------------------------------------+\n\n");
+}
+
+int isValidDate(const char *dateStr) {
+    int day, month, year;
+
+    // --- ส่วนที่แก้ไข ---
+    // 1. ตรวจสอบรูปแบบ yyyy-mm-dd และความยาว
+    if (strlen(dateStr) != 10 || dateStr[4] != '-' || dateStr[7] != '-') {
+        return 0; // รูปแบบไม่ถูกต้อง
+    }
+
+    // 2. ลองแปลงค่าเป็นตัวเลข (ใช้ sscanf กับ format ใหม่)
+    if (sscanf(dateStr, "%d-%d-%d", &year, &month, &day) != 3) {
+        return 0; // มีตัวอักษรที่ไม่ใช่ตัวเลข
+    }
+    // --- สิ้นสุดส่วนที่แก้ไข ---
+
+    // 3. ตรวจสอบขอบเขตของปีและเดือน (เหมือนเดิม)
+    if (year < 1900 || year > 2100) return 0;
+    if (month < 1 || month > 12) return 0;
+
+    // 4. ตรวจสอบวันในแต่ละเดือน (รวมปีอธิกสุรทิน) (เหมือนเดิม)
+    int daysInMonth[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) {
+        daysInMonth[2] = 29;
+    }
+    if (day < 1 || day > daysInMonth[month]) {
+        return 0;
+    }
+
+    return 1; // วันที่ถูกต้อง
+}
+// ----------------------------------------------------
+
+
+void generateNextId(char* nextId) {
+    FILE *file = fopen("test.csv", "r");
+    char line[256];
+    char lastId[10] = "F000";
+
+    if (file != NULL) {
+        while (fgets(line, sizeof(line), file)) {
+            char *token = strtok(line, ",");
+            if (token != NULL && token[0] == 'F') {
+                strcpy(lastId, token);
+            }
+        }
+        fclose(file);
+    }
+
+    int lastNum = atoi(lastId + 1);
+    int nextNum = lastNum + 1;
+    sprintf(nextId, "F%03d", nextNum);
 }
 
 void AddFineData() {
-    printf(COLOR_YELLOW "\n--- เพิ่มข้อมูลค่าปรับใหม่ ---\n" COLOR_RESET);
-    int Fine; char FirstName[50], LastName[50], Id[10], Date[11];
-    printf(COLOR_MAGENTA "ReceiptID: " COLOR_RESET); scanf("%9s", Id); clearInputBuffer();
-    printf(COLOR_MAGENTA "PayerName (First Last): " COLOR_RESET); scanf("%49s %49s", FirstName, LastName); clearInputBuffer();
-    printf(COLOR_MAGENTA "Fineamount: " COLOR_RESET); scanf("%d", &Fine); clearInputBuffer();
-    printf(COLOR_MAGENTA "PaymentDate (yyyy-mm-dd): " COLOR_RESET); scanf("%10s", Date); clearInputBuffer();
+    int Fine;
+    char FirstName[50], LastName[50], Date[11];
+    char newId[10];
+    char inputBuffer[100];
+    char *endptr;
+    long tempFine;
+
+    generateNextId(newId);
+    printf("Generated ReceiptID: %s\n", newId);
+
+    printf("PayerName (First Last): ");
+    scanf("%49s %49s", FirstName, LastName);
+    clearInputBuffer();
+
+    while (1) {
+        printf("Fineamount: ");
+        if (fgets(inputBuffer, sizeof(inputBuffer), stdin) == NULL) {
+            printf("Error reading input.\n");
+            return;
+        }
+        tempFine = strtol(inputBuffer, &endptr, 10);
+        while (*endptr != '\0' && isspace((unsigned char)*endptr)) {
+            endptr++;
+        }
+        if (endptr == inputBuffer || *endptr != '\0') {
+            printf("Error: Please enter numbers only.\n");
+        } else if (tempFine < 0) {
+            printf("Error: Fine amount cannot be negative.\n");
+        } else {
+            Fine = (int)tempFine;
+            break;
+        }
+    }
+
+    // --- ส่วนที่แก้ไข: ลูปสำหรับรับและตรวจสอบวันที่ ---
+    while (1) {
+        // แก้ไขข้อความแนะนำให้ผู้ใช้
+        printf("PaymentDate (yyyy-mm-dd): ");
+        scanf("%10s", Date);
+        clearInputBuffer();
+
+        if (isValidDate(Date)) {
+            break; // วันที่ถูกต้อง ออกจากลูป
+        } else {
+            // แก้ไขข้อความ Error
+            printf("Error: Invalid date or format. Please use yyyy-mm-dd format.\n");
+        }
+    }
+    // ---------------------------------------------
 
     FILE *Add = fopen("test.csv", "a");
     if (Add == NULL) {
-        printf(COLOR_RED "\n[ERROR] ไม่สามารถเปิดไฟล์เพื่อเขียนได้\n" COLOR_RESET);
+        printf("Error: ไม่สามารถเปิดไฟล์เพื่อเขียนได้\n");
     } else {
-        fprintf(Add, "%s,%s %s,%d,%s\n", Id, FirstName, LastName, Fine, Date);
-        printf(COLOR_GREEN "\n[SUCCESS] เพิ่มข้อมูลเรียบร้อยแล้ว!\n" COLOR_RESET);
+        fprintf(Add, "%s,%s %s,%d,%s\n", newId, FirstName, LastName, Fine, Date);
+        printf("Success: เพิ่มข้อมูลเรียบร้อยแล้ว\n\n");
         fclose(Add);
     }
 }
 
+// ============== 🔎 ฟังก์ชันค้นหาข้อมูล (Choice 3) - ปรับปรุงการแสดงผล ==============
 void SearchFineData() {
-    char searchTerm[100]; char line[1024]; int found = 0;
-    printf(COLOR_MAGENTA "\nกรอกคำค้นหา (ReceiptID หรือ PayerName): " COLOR_RESET);
-    scanf("%99[^\n]", searchTerm); clearInputBuffer();
-    FILE *file = fopen("test.csv", "r");
-    if (file == NULL) {
-        printf(COLOR_RED "\n[ERROR] ไม่สามารถเปิดไฟล์ข้อมูลได้\n" COLOR_RESET); return;
+    int choice;
+    printf("\n---------- Search Menu ----------\n");
+    printf("1) ค้นหาด้วย ReceiptID\n");
+    printf("2) ค้นหาด้วยชื่อผู้จ่าย (Payer Name)\n");
+    printf("3) กลับเมนูหลัก\n");
+    printf("---------------------------------\n");
+    printf("เลือกวิธีการค้นหา: ");
+
+    if (scanf("%d", &choice) != 1) {
+        printf("Error: กรุณาป้อนเป็นตัวเลขเท่านั้น\n\n");
+        clearInputBuffer();
+        return;
     }
-    printf(COLOR_YELLOW "\n--- ผลการค้นหาสำหรับ '%s' ---\n" COLOR_RESET, searchTerm);
-    fgets(line, sizeof(line), file); // Skip Header
-    while (fgets(line, sizeof(line), file)) {
-        if (strstr(line, searchTerm) != NULL) {
-            if (!found) { printTableHeader(); found = 1; }
-            printTableRow(line);
+    clearInputBuffer();
+
+    char line[1024];
+    int foundCount = 0;
+
+    // --- ค้นหาด้วย ReceiptID ---
+    if (choice == 1) {
+        char searchId[10];
+        printf("กรอก ReceiptID ที่ต้องการค้นหา: ");
+        scanf("%9s", searchId);
+        clearInputBuffer();
+
+        FILE *file = fopen("test.csv", "r");
+        if (file == NULL) { printf("Error: ไม่สามารถเปิดไฟล์ได้\n"); return; }
+        
+        // ข้าม Header
+        fgets(line, sizeof(line), file);
+
+        // --- ส่วนที่แก้ไข: แสดงผลเป็นตาราง ---
+        printf("\n\n+--------------------------------------------------------------------------------+\n");
+        printf("|                        ผลการค้นหาสำหรับ ReceiptID: %-10s                     |\n", searchId);
+        printf("+------------+--------------------------------+--------------+-----------------+\n");
+        printf("| ReceiptID  | PayerName                      | FineAmount   | PaymentDate     |\n");
+        printf("+------------+--------------------------------+--------------+-----------------+\n");
+
+        while (fgets(line, sizeof(line), file)) {
+            char tempLine[1024];
+            strcpy(tempLine, line);
+            line[strcspn(line, "\r\n")] = 0;
+
+            char *id = strtok(tempLine, ",");
+            if (id != NULL && strcmp(id, searchId) == 0) {
+                char *name = strtok(NULL, ",");
+                char *fine = strtok(NULL, ",");
+                char *date = strtok(NULL, ",");
+                printf("| %-10s | %-30s | %-12d | %-15s |\n", id, name, atoi(fine), date);
+                foundCount++;
+            }
         }
+        fclose(file);
+
+        if (foundCount == 0) {
+            printf("| %-78s |\n", "ไม่พบข้อมูล");
+        }
+        
+        printf("+------------+--------------------------------+--------------+-----------------+\n");
+        printf("| Total Found: %-63d |\n", foundCount);
+        printf("+--------------------------------------------------------------------------------+\n\n");
+
     }
-    if (found) {
-        printf("+-----------------+---------------------------+--------------+-----------------+\n");
-    } else {
-        printf(COLOR_YELLOW "ไม่พบข้อมูลที่ตรงกับคำค้นหา\n" COLOR_RESET);
+    // --- ค้นหาด้วยชื่อ ---
+    else if (choice == 2) {
+        char searchQuery[100];
+        printf("กรอกชื่อบางส่วนที่ต้องการค้นหา: ");
+        if (fgets(searchQuery, sizeof(searchQuery), stdin) == NULL) return;
+        searchQuery[strcspn(searchQuery, "\r\n")] = 0;
+
+        FILE *file = fopen("test.csv", "r");
+        if (file == NULL) { printf("Error: ไม่สามารถเปิดไฟล์ได้\n"); return; }
+        
+        // ข้าม Header
+        fgets(line, sizeof(line), file);
+        
+        char lowerSearchQuery[100];
+        strcpy(lowerSearchQuery, searchQuery);
+        toLowerCase(lowerSearchQuery);
+
+        // --- ส่วนที่แก้ไข: แสดงผลเป็นตาราง ---
+        printf("\n\n+--------------------------------------------------------------------------------+\n");
+        printf("|                     ผลการค้นหาสำหรับชื่อ: '%-20s'                      |\n", searchQuery);
+        printf("+------------+--------------------------------+--------------+-----------------+\n");
+        printf("| ReceiptID  | PayerName                      | FineAmount   | PaymentDate     |\n");
+        printf("+------------+--------------------------------+--------------+-----------------+\n");
+        
+        while (fgets(line, sizeof(line), file)) {
+            char originalLine[1024];
+            strcpy(originalLine, line); // เก็บข้อมูลบรรทัดเดิมไว้แสดงผล
+            originalLine[strcspn(originalLine, "\r\n")] = 0;
+
+            char *id_token = strtok(line, ",");
+            char *name_token = strtok(NULL, ",");
+
+            if (name_token != NULL) {
+                char lowerNameFromFile[100];
+                strcpy(lowerNameFromFile, name_token);
+                toLowerCase(lowerNameFromFile);
+
+                if (strstr(lowerNameFromFile, lowerSearchQuery) != NULL) {
+                    char *id_p = strtok(originalLine, ",");
+                    char *name_p = strtok(NULL, ",");
+                    char *fine_p = strtok(NULL, ",");
+                    char *date_p = strtok(NULL, ",");
+                    printf("| %-10s | %-30s | %-12d | %-15s |\n", id_p, name_p, atoi(fine_p), date_p);
+                    foundCount++;
+                }
+            }
+        }
+        fclose(file);
+        
+        if (foundCount == 0) {
+            printf("| %-78s |\n", "ไม่พบข้อมูล");
+        }
+
+        printf("+------------+--------------------------------+--------------+-----------------+\n");
+        printf("| Total Found: %-63d |\n", foundCount);
+        printf("+--------------------------------------------------------------------------------+\n\n");
     }
-    fclose(file);
+    else if (choice == 3) {
+        printf("\n");
+        return;
+    }
+    else {
+        printf("Error: ตัวเลือกไม่ถูกต้อง\n\n");
+    }
 }
 
+// ============== 📝 ฟังก์ชันอัปเดตข้อมูล (Choice 4) - ปรับปรุงใหม่ทั้งหมด ==============
 void UpdateFineData() {
-    printf(COLOR_YELLOW "\n--- อัพเดทข้อมูลค่าปรับ ---\n" COLOR_RESET);
-    char updateId[10]; char line[1024]; int found = 0;
-    printf(COLOR_MAGENTA "กรอก ReceiptID ของข้อมูลที่ต้องการอัปเดต: " COLOR_RESET);
-    scanf("%9s", updateId); clearInputBuffer();
+    char updateId[10];
+    char line[1024];
+    int found = 0;
 
-    FILE *originalFile = fopen("test.csv", "r");
-    FILE *tempFile = fopen("temp.csv", "w");
-
-    if (originalFile == NULL || tempFile == NULL) {
-        printf(COLOR_RED "\n[ERROR] เกิดข้อผิดพลาดในการเปิดไฟล์\n" COLOR_RESET); return;
-    }
-
-    if (fgets(line, sizeof(line), originalFile) != NULL) fprintf(tempFile, "%s", line); // Copy Header
-
-    while (fgets(line, sizeof(line), originalFile)) {
-        char tempLine[1024]; strcpy(tempLine, line);
-        char *id = strtok(tempLine, ",");
-        if (id != NULL && strcmp(id, updateId) == 0) {
-            found = 1;
-            printf(COLOR_YELLOW "--- พบข้อมูล! กรุณากรอกข้อมูลใหม่ ---\n" COLOR_RESET);
-            int newFine; char newFirstName[50], newLastName[50], newDate[11];
-            printf(COLOR_MAGENTA "New PayerName (First Last): " COLOR_RESET); scanf("%49s %49s", newFirstName, newLastName); clearInputBuffer();
-            printf(COLOR_MAGENTA "New Fineamount: " COLOR_RESET); scanf("%d", &newFine); clearInputBuffer();
-            printf(COLOR_MAGENTA "New PaymentDate (yyyy-mm-dd): " COLOR_RESET); scanf("%10s", newDate); clearInputBuffer();
-            fprintf(tempFile, "%s,%s %s,%d,%s\n", updateId, newFirstName, newLastName, newFine, newDate);
-        } else {
-            fprintf(tempFile, "%s", line);
+    // Loop สำหรับรับ ReceiptID จนกว่าจะเจอ หรือผู้ใช้ยกเลิก
+    while(1) {
+        printf("กรอก ReceiptID ของข้อมูลที่ต้องการอัปเดต (หรือพิมพ์ 'exit' เพื่อกลับเมนูหลัก): ");
+        scanf("%9s", updateId);
+        clearInputBuffer();
+        
+        if (strcmp(updateId, "exit") == 0) {
+            printf("\n");
+            return; // กลับเมนูหลัก
         }
-    }
-    fclose(originalFile); fclose(tempFile);
 
-    if (!found) {
-        printf(COLOR_YELLOW "\n[INFO] ไม่พบข้อมูล ReceiptID: %s\n" COLOR_RESET, updateId);
-        remove("temp.csv");
-    } else {
-        remove("test.csv");
-        rename("temp.csv", "test.csv");
-        printf(COLOR_GREEN "\n[SUCCESS] อัปเดตข้อมูลเรียบร้อยแล้ว!\n" COLOR_RESET);
+        FILE *originalFile = fopen("test.csv", "r");
+        if (originalFile == NULL) {
+            printf("Error: ไม่สามารถเปิดไฟล์ต้นฉบับได้\n");
+            return;
+        }
+
+        //--- ค้นหาข้อมูลและเก็บข้อมูลเก่าไว้ ---
+        char oldPayerName[100], oldPaymentDate[11];
+        int oldFineAmount;
+        
+        fgets(line, sizeof(line), originalFile); // ข้าม Header
+
+        while (fgets(line, sizeof(line), originalFile)) {
+            line[strcspn(line, "\r\n")] = 0;
+            char tempLine[1024];
+            strcpy(tempLine, line);
+            char *id = strtok(tempLine, ",");
+            if (id != NULL && strcmp(id, updateId) == 0) {
+                found = 1;
+                strcpy(oldPayerName, strtok(NULL, ","));
+                oldFineAmount = atoi(strtok(NULL, ","));
+                strcpy(oldPaymentDate, strtok(NULL, ","));
+                break; // เจอแล้ว ออกจาก loop ค้นหา
+            }
+        }
+        fclose(originalFile);
+
+        if (found) {
+            // --- 1. แสดงข้อมูลปัจจุบันที่พบ ---
+            printf("\n--- พบข้อมูลปัจจุบัน ---\n");
+            printf("+------------+--------------------------------+--------------+-----------------+\n");
+            printf("| ReceiptID  | PayerName                      | FineAmount   | PaymentDate     |\n");
+            printf("+------------+--------------------------------+--------------+-----------------+\n");
+            printf("| %-10s | %-30s | %-12d | %-15s |\n", updateId, oldPayerName, oldFineAmount, oldPaymentDate);
+            printf("+------------+--------------------------------+--------------+-----------------+\n\n");
+
+            // --- 2. รับข้อมูลใหม่จากผู้ใช้ ---
+            printf("--- กรุณากรอกข้อมูลใหม่ ---\n");
+            int newFine;
+            char newFirstName[50], newLastName[50], newDate[11], newFullName[100];
+            char inputBuffer[100];
+            char *endptr;
+            long tempFine;
+
+            printf("New PayerName (First Last): ");
+            scanf("%49s %49s", newFirstName, newLastName);
+            sprintf(newFullName, "%s %s", newFirstName, newLastName); // รวมชื่อ-นามสกุล
+            clearInputBuffer();
+
+            while (1) {
+                printf("New FineAmount: ");
+                if (fgets(inputBuffer, sizeof(inputBuffer), stdin) == NULL) { return; }
+                tempFine = strtol(inputBuffer, &endptr, 10);
+                while (*endptr != '\0' && isspace((unsigned char)*endptr)) { endptr++; }
+                if (endptr == inputBuffer || *endptr != '\0' || tempFine < 0) {
+                    printf("Error: Please enter a valid non-negative number.\n");
+                } else {
+                    newFine = (int)tempFine;
+                    break;
+                }
+            }
+            
+            while (1) {
+                printf("New PaymentDate (yyyy-mm-dd): ");
+                scanf("%10s", newDate);
+                clearInputBuffer();
+                if (isValidDate(newDate)) { break; } 
+                else { printf("Error: Invalid date or format.\n"); }
+            }
+
+            // --- 3. แสดงตารางเปรียบเทียบข้อมูล ---
+            printf("\n\n--- กรุณาตรวจสอบและยืนยันการเปลี่ยนแปลง ---\n");
+            printf("+-----------------+--------------------------------+--------------------------------+\n");
+            printf("| Field           | Old Data                       | New Data                       |\n");
+            printf("+-----------------+--------------------------------+--------------------------------+\n");
+            printf("| PayerName       | %-30s | %-30s |\n", oldPayerName, newFullName);
+            printf("| FineAmount      | %-30d | %-30d |\n", oldFineAmount, newFine);
+            printf("| PaymentDate     | %-30s | %-30s |\n", oldPaymentDate, newDate);
+            printf("+-----------------+--------------------------------+--------------------------------+\n");
+
+            // --- 4. ขอการยืนยัน ---
+            char confirm;
+            printf("คุณต้องการยืนยันการอัปเดตหรือไม่? (y/n): ");
+            scanf(" %c", &confirm);
+            clearInputBuffer();
+
+            if (confirm == 'y' || confirm == 'Y') {
+                // --- 5. เริ่มกระบวนการเขียนไฟล์ ---
+                FILE *origFile = fopen("test.csv", "r");
+                FILE *tempFile = fopen("temp.csv", "w");
+
+                // คัดลอก Header ไปยังไฟล์ temp
+                fgets(line, sizeof(line), origFile);
+                fprintf(tempFile, "%s", line);
+
+                // เขียนข้อมูลทีละบรรทัด
+                while (fgets(line, sizeof(line), origFile)) {
+                    char tempLine[1024];
+                    strcpy(tempLine, line);
+                    char *id = strtok(tempLine, ",");
+                    if (id != NULL && strcmp(id, updateId) == 0) {
+                        // เขียนข้อมูลใหม่สำหรับ ID ที่ตรงกัน
+                        fprintf(tempFile, "%s,%s,%d,%s\n", updateId, newFullName, newFine, newDate);
+                    } else {
+                        // คัดลอกข้อมูลเดิมที่ไม่เปลี่ยนแปลง
+                        fprintf(tempFile, "%s", line);
+                    }
+                }
+                fclose(origFile);
+                fclose(tempFile);
+
+                remove("test.csv");
+                rename("temp.csv", "test.csv");
+                printf("\nSuccess: อัปเดตข้อมูลเรียบร้อยแล้ว\n\n");
+            } else {
+                printf("\nCancel: การอัปเดตถูกยกเลิก\n\n");
+            }
+            break; // ออกจาก loop while(1) หลัก
+        } else {
+             printf("\nไม่พบข้อมูล ReceiptID: %s, กรุณาลองใหม่อีกครั้ง\n\n", updateId);
+        }
     }
 }
 
+// ============== 🗑️ ฟังก์ชันลบข้อมูล (Choice 5) ==============
 void DeleteFineData() {
-    printf(COLOR_YELLOW "\n--- ลบข้อมูลค่าปรับ ---\n" COLOR_RESET);
-    char deleteId[10]; char line[1024]; int found = 0;
-    printf(COLOR_MAGENTA "กรอก ReceiptID ของข้อมูลที่ต้องการลบ: " COLOR_RESET);
-    scanf("%9s", deleteId); clearInputBuffer();
+    char deleteId[10];
+    char line[1024];
+    int found = 0;
 
-    FILE *originalFile = fopen("test.csv", "r");
-    FILE *tempFile = fopen("temp.csv", "w");
+    // --- ส่วนที่แก้ไข: เพิ่ม Loop ---
+    while(1) {
+        printf("กรอก ReceiptID ของข้อมูลที่ต้องการลบ (หรือพิมพ์ 'exit' เพื่อกลับเมนูหลัก): ");
+        scanf("%9s", deleteId);
+        clearInputBuffer();
 
-    if (originalFile == NULL || tempFile == NULL) {
-        printf(COLOR_RED "\n[ERROR] เกิดข้อผิดพลาดในการเปิดไฟล์\n" COLOR_RESET); return;
-    }
+        if (strcmp(deleteId, "exit") == 0) {
+            printf("\n");
+            return;
+        }
 
-    if (fgets(line, sizeof(line), originalFile) != NULL) fprintf(tempFile, "%s", line); // Copy Header
-    
-    while (fgets(line, sizeof(line), originalFile)) {
-        char tempLine[1024]; strcpy(tempLine, line);
-        char *id = strtok(tempLine, ",");
-        if (id != NULL && strcmp(id, deleteId) == 0) {
-            found = 1; // Skip this line
+        FILE *originalFile = fopen("test.csv", "r");
+        if (originalFile == NULL) {
+            printf("Error: ไม่สามารถเปิดไฟล์ต้นฉบับได้\n");
+            return;
+        }
+
+        // ตรวจสอบว่ามี ID นี้ในไฟล์หรือไม่ก่อน
+        found = 0;
+        while (fgets(line, sizeof(line), originalFile)) {
+            char tempLine[1024];
+            strcpy(tempLine, line);
+            char *id = strtok(tempLine, ",");
+            if (id != NULL && strcmp(id, deleteId) == 0) {
+                found = 1;
+                break;
+            }
+        }
+        fclose(originalFile);
+
+        if (found) {
+            // ถ้าเจอ ID ค่อยเริ่มกระบวนการลบ
+            FILE *origFile = fopen("test.csv", "r");
+            FILE *tempFile = fopen("temp.csv", "w");
+
+            if (origFile == NULL || tempFile == NULL) {
+                printf("Error: เกิดข้อผิดพลาดในการเปิดไฟล์\n");
+                if (origFile) fclose(origFile);
+                if (tempFile) fclose(tempFile);
+                return;
+            }
+
+            while (fgets(line, sizeof(line), origFile)) {
+                char tempLine[1024];
+                strcpy(tempLine, line);
+                char *id = strtok(tempLine, ",");
+                if (id == NULL || strcmp(id, deleteId) != 0) {
+                    fprintf(tempFile, "%s", line);
+                }
+            }
+
+            fclose(origFile);
+            fclose(tempFile);
+
+            remove("test.csv");
+            rename("temp.csv", "test.csv");
+            
+            printf("Success: ลบข้อมูล ReceiptID: %s เรียบร้อยแล้ว\n\n", deleteId);
+            break; // ออกจาก loop while(1)
         } else {
-            fprintf(tempFile, "%s", line);
+            printf("ไม่พบข้อมูล ReceiptID: %s เพื่อทำการลบ, กรุณาลองใหม่อีกครั้ง\n\n", deleteId);
         }
     }
-    fclose(originalFile); fclose(tempFile);
+}
 
-    if (!found) {
-        printf(COLOR_YELLOW "\n[INFO] ไม่พบข้อมูล ReceiptID: %s\n" COLOR_RESET, deleteId);
-        remove("temp.csv");
-    } else {
-        remove("test.csv");
-        rename("temp.csv", "test.csv");
-        printf(COLOR_GREEN "\n[SUCCESS] ลบข้อมูลเรียบร้อยแล้ว!\n" COLOR_RESET);
-    }
+
+// ============== Main Program ==============
+int main() {
+    int choice;
+    do {
+        printf("1) อ่านข้อมูลการจ่ายค่าปรับ\n");
+        printf("2) เพิ่มข้อมูลการจ่ายค่าปรับ\n");
+        printf("3) ค้นหาข้อมูลการจ่ายค่าปรับ\n");
+        printf("4) อัพเดทข้อมูลการจ่ายค่าปรับ\n");
+        printf("5) ลบข้อมูลการจ่ายค่าปรับ\n");
+        printf("6) ออกจากโปรแกรม\n");
+        printf("เลือกดำเนินการ: ");
+        
+        if (scanf("%d", &choice) != 1) {
+            printf("กรุณาป้อนข้อมูลเป็นตัวเลขเท่านั้น\n");
+            clearInputBuffer();
+            continue;
+        }
+        clearInputBuffer();
+
+        switch (choice) {
+            case 1:
+                ReadCsv();
+                break; // อย่าลืม break; เพื่อออกจาก switch
+
+            case 2:
+                AddFineData();
+                break;
+
+            case 3:
+                SearchFineData();
+                break;
+
+            case 4:
+                UpdateFineData();
+                break;
+
+            case 5:
+                DeleteFineData();
+                break;
+
+            case 6:
+                printf("ออกจากโปรแกรม\n");
+                break;
+
+            default: // ทำงานเมื่อไม่มี case ไหนตรงกับเงื่อนไข (เหมือนกับ else ตัวสุดท้าย)
+                printf("ตัวเลือกไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง\n");
+                break;
+        }
+
+    } while (choice != 6);
+    
+    return 0;
 }

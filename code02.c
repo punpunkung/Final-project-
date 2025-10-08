@@ -161,34 +161,47 @@ void SearchFineData() {
     char line[1024];
     int found = 0;
 
-    printf("กรอก ReceiptID ที่ต้องการค้นหา: ");
-    scanf("%9s", searchId);
-    clearInputBuffer();
+    // --- ส่วนที่แก้ไข: เพิ่ม Loop ---
+    while (1) {
+        printf("กรอก ReceiptID ที่ต้องการค้นหา (หรือพิมพ์ 'exit' เพื่อกลับเมนูหลัก): ");
+        scanf("%9s", searchId);
+        clearInputBuffer();
 
-    FILE *file = fopen("test.csv", "r");
-    if (file == NULL) {
-        printf("Error: ไม่สามารถเปิดไฟล์ข้อมูลได้\n");
-        return;
-    }
+        //-- ตรวจสอบเงื่อนไขการออกจาก Loop --
+        if (strcmp(searchId, "exit") == 0) {
+            printf("\n");
+            return; // กลับไปที่เมนูหลัก
+        }
 
-    printf("\n--- ผลการค้นหา ---\n");
-    while (fgets(line, sizeof(line), file)) {
-        char tempLine[1024];
-        strcpy(tempLine, line); // คัดลอก line ไว้ใช้กับ strtok
+        FILE *file = fopen("test.csv", "r");
+        if (file == NULL) {
+            printf("Error: ไม่สามารถเปิดไฟล์ข้อมูลได้\n");
+            return;
+        }
 
-        char *token = strtok(tempLine, ","); // แยกข้อมูลส่วนแรก (ID) ด้วยเครื่องหมาย comma
-        if (token != NULL && strcmp(token, searchId) == 0) {
-            printf("%s", line); // ถ้า ID ตรงกัน ให้แสดงผลทั้งบรรทัด
-            found = 1;
+        found = 0; // รีเซ็ตค่า found ทุกครั้งที่ค้นหาใหม่
+        while (fgets(line, sizeof(line), file)) {
+            char tempLine[1024];
+            strcpy(tempLine, line);
+            char *token = strtok(tempLine, ",");
+            if (token != NULL && strcmp(token, searchId) == 0) {
+                if (!found) { // ถ้าเป็นการเจอครั้งแรก ให้แสดง Header
+                    printf("\n--- ผลการค้นหา ---\n");
+                }
+                printf("%s", line);
+                found = 1;
+            }
+        }
+        fclose(file);
+        
+        if (found) {
+            printf("------------------\n\n");
+            break; // หากเจอข้อมูลแล้ว ให้ออกจาก loop
+        } else {
+            // หากไม่เจอ ให้แจ้งเตือนแล้ววนกลับไปถามใหม่
+            printf("ไม่พบข้อมูลสำหรับ ReceiptID: %s, กรุณาลองใหม่อีกครั้ง\n\n", searchId);
         }
     }
-    
-    if (!found) {
-        printf("ไม่พบข้อมูลสำหรับ ReceiptID: %s\n", searchId);
-    }
-    printf("------------------\n\n");
-
-    fclose(file);
 }
 
 // ============== 📝 ฟังก์ชันอัปเดตข้อมูล (Choice 4) ==============
@@ -197,60 +210,108 @@ void UpdateFineData() {
     char line[1024];
     int found = 0;
 
-    printf("กรอก ReceiptID ของข้อมูลที่ต้องการอัปเดต: ");
-    scanf("%9s", updateId);
-    clearInputBuffer();
-
-    FILE *originalFile = fopen("test.csv", "r");
-    FILE *tempFile = fopen("temp.csv", "w"); // สร้างไฟล์ชั่วคราวเพื่อเขียนข้อมูลใหม่
-
-    if (originalFile == NULL || tempFile == NULL) {
-        printf("Error: เกิดข้อผิดพลาดในการเปิดไฟล์\n");
-        return;
-    }
-
-    while (fgets(line, sizeof(line), originalFile)) {
-        char tempLine[1024];
-        strcpy(tempLine, line);
-        char *id = strtok(tempLine, ",");
-
-        if (id != NULL && strcmp(id, updateId) == 0) {
-            found = 1;
-            printf("--- พบข้อมูล! กรุณากรอกข้อมูลใหม่ ---\n");
-            
-            // รับข้อมูลใหม่จากผู้ใช้
-            int newFine;
-            char newFirstName[50], newLastName[50], newDate[11];
-
-            printf("New PayerName (First Last): ");
-            scanf("%49s %49s", newFirstName, newLastName);
-            clearInputBuffer();
-
-            printf("New Fineamount: ");
-            scanf("%d", &newFine);
-            clearInputBuffer();
-
-            printf("New PaymentDate (dd/mm/yyyy): ");
-            scanf("%10s", newDate);
-            clearInputBuffer();
-
-            // เขียนข้อมูลที่อัปเดตแล้วลงในไฟล์ชั่วคราว
-            fprintf(tempFile, "%s,%s %s,%d,%s\n", updateId, newFirstName, newLastName, newFine, newDate);
-            printf("Success: อัปเดตข้อมูลเรียบร้อยแล้ว\n\n");
-        } else {
-            fprintf(tempFile, "%s", line); // ถ้า ID ไม่ตรงกัน ให้คัดลอกข้อมูลเดิมไปไฟล์ชั่วคราว
+    // --- ส่วนที่แก้ไข: เพิ่ม Loop ---
+    while(1) {
+        printf("กรอก ReceiptID ของข้อมูลที่ต้องการอัปเดต (หรือพิมพ์ 'exit' เพื่อกลับเมนูหลัก): ");
+        scanf("%9s", updateId);
+        clearInputBuffer();
+        
+        if (strcmp(updateId, "exit") == 0) {
+            printf("\n");
+            return;
         }
-    }
 
-    fclose(originalFile);
-    fclose(tempFile);
+        FILE *originalFile = fopen("test.csv", "r");
+        if (originalFile == NULL) {
+            printf("Error: ไม่สามารถเปิดไฟล์ต้นฉบับได้\n");
+            return;
+        }
 
-    if (!found) {
-        printf("ไม่พบข้อมูล ReceiptID: %s เพื่อทำการอัปเดต\n\n", updateId);
-        remove("temp.csv"); // ลบไฟล์ชั่วคราวทิ้งถ้าไม่เจอข้อมูล
-    } else {
-        remove("test.csv"); // ลบไฟล์เก่า
-        rename("temp.csv", "test.csv"); // เปลี่ยนชื่อไฟล์ชั่วคราวเป็นไฟล์จริง
+        // ตรวจสอบว่ามี ID นี้ในไฟล์หรือไม่ก่อนจะสร้างไฟล์ temp
+        found = 0;
+        while (fgets(line, sizeof(line), originalFile)) {
+            char tempLine[1024];
+            strcpy(tempLine, line);
+            char *id = strtok(tempLine, ",");
+            if (id != NULL && strcmp(id, updateId) == 0) {
+                found = 1;
+                break;
+            }
+        }
+        fclose(originalFile); // ปิดไฟล์หลังตรวจสอบเสร็จ
+
+        if (found) {
+            // ถ้าเจอ ID ถึงจะเริ่มกระบวนการอัปเดต
+            // โค้ดส่วนนี้เหมือนเดิม แต่ไม่จำเป็นต้องมี found flag อีก
+            // (สามารถคัดลอกโค้ดอัปเดตเดิมมาวางตรงนี้ได้เลย)
+            FILE *origFile = fopen("test.csv", "r");
+            FILE *tempFile = fopen("temp.csv", "w");
+
+            if (origFile == NULL || tempFile == NULL) {
+                printf("Error: เกิดข้อผิดพลาดในการเปิดไฟล์\n");
+                if (origFile) fclose(origFile);
+                if (tempFile) fclose(tempFile);
+                return;
+            }
+
+            while (fgets(line, sizeof(line), origFile)) {
+                char tempLine[1024];
+                strcpy(tempLine, line);
+                char *id = strtok(tempLine, ",");
+
+                if (id != NULL && strcmp(id, updateId) == 0) {
+                    printf("--- พบข้อมูล! กรุณากรอกข้อมูลใหม่ ---\n");
+                    // (ส่วนของการรับข้อมูลใหม่และการตรวจสอบเหมือนเดิมทุกประการ)
+                    int newFine;
+                    char newFirstName[50], newLastName[50], newDate[11];
+                    char inputBuffer[100];
+                    char *endptr;
+                    long tempFine;
+
+                    printf("New PayerName (First Last): ");
+                    scanf("%49s %49s", newFirstName, newLastName);
+                    clearInputBuffer();
+
+                    while (1) {
+                        printf("New Fineamount: ");
+                        if (fgets(inputBuffer, sizeof(inputBuffer), stdin) == NULL) { return; }
+                        tempFine = strtol(inputBuffer, &endptr, 10);
+                        while (*endptr != '\0' && isspace((unsigned char)*endptr)) { endptr++; }
+                        if (endptr == inputBuffer || *endptr != '\0') {
+                            printf("Error: Please enter numbers only.\n");
+                        } else if (tempFine < 0) {
+                            printf("Error: Fine amount cannot be negative.\n");
+                        } else {
+                            newFine = (int)tempFine;
+                            break;
+                        }
+                    }
+                    
+                    while (1) {
+                        printf("New PaymentDate (dd/mm/yyyy): ");
+                        scanf("%10s", newDate);
+                        clearInputBuffer();
+
+                        if (isValidDate(newDate)) { break; } 
+                        else { printf("Error: Invalid date or format.\n"); }
+                    }
+                    
+                    fprintf(tempFile, "%s,%s %s,%d,%s\n", updateId, newFirstName, newLastName, newFine, newDate);
+                    printf("Success: อัปเดตข้อมูลเรียบร้อยแล้ว\n\n");
+                } else {
+                    fprintf(tempFile, "%s", line);
+                }
+            }
+
+            fclose(origFile);
+            fclose(tempFile);
+
+            remove("test.csv");
+            rename("temp.csv", "test.csv");
+            break; // ออกจาก loop while(1) หลัก
+        } else {
+             printf("ไม่พบข้อมูล ReceiptID: %s เพื่อทำการอัปเดต, กรุณาลองใหม่อีกครั้ง\n\n", updateId);
+        }
     }
 }
 
@@ -260,40 +321,68 @@ void DeleteFineData() {
     char line[1024];
     int found = 0;
 
-    printf("กรอก ReceiptID ของข้อมูลที่ต้องการลบ: ");
-    scanf("%9s", deleteId);
-    clearInputBuffer();
+    // --- ส่วนที่แก้ไข: เพิ่ม Loop ---
+    while(1) {
+        printf("กรอก ReceiptID ของข้อมูลที่ต้องการลบ (หรือพิมพ์ 'exit' เพื่อกลับเมนูหลัก): ");
+        scanf("%9s", deleteId);
+        clearInputBuffer();
 
-    FILE *originalFile = fopen("test.csv", "r");
-    FILE *tempFile = fopen("temp.csv", "w");
-
-    if (originalFile == NULL || tempFile == NULL) {
-        printf("Error: เกิดข้อผิดพลาดในการเปิดไฟล์\n");
-        return;
-    }
-
-    while (fgets(line, sizeof(line), originalFile)) {
-        char tempLine[1024];
-        strcpy(tempLine, line);
-        char *id = strtok(tempLine, ",");
-
-        if (id != NULL && strcmp(id, deleteId) == 0) {
-            found = 1; // เจอข้อมูลที่ต้องการลบแล้ว ไม่ต้องทำอะไร (คือไม่เขียนลงไฟล์ใหม่)
-            printf("Success: ลบข้อมูล ReceiptID: %s เรียบร้อยแล้ว\n\n", deleteId);
-        } else {
-            fprintf(tempFile, "%s", line); // เขียนเฉพาะข้อมูลที่ไม่ต้องการลบลงไฟล์ชั่วคราว
+        if (strcmp(deleteId, "exit") == 0) {
+            printf("\n");
+            return;
         }
-    }
 
-    fclose(originalFile);
-    fclose(tempFile);
+        FILE *originalFile = fopen("test.csv", "r");
+        if (originalFile == NULL) {
+            printf("Error: ไม่สามารถเปิดไฟล์ต้นฉบับได้\n");
+            return;
+        }
 
-    if (!found) {
-        printf("ไม่พบข้อมูล ReceiptID: %s เพื่อทำการลบ\n\n", deleteId);
-        remove("temp.csv");
-    } else {
-        remove("test.csv");
-        rename("temp.csv", "test.csv");
+        // ตรวจสอบว่ามี ID นี้ในไฟล์หรือไม่ก่อน
+        found = 0;
+        while (fgets(line, sizeof(line), originalFile)) {
+            char tempLine[1024];
+            strcpy(tempLine, line);
+            char *id = strtok(tempLine, ",");
+            if (id != NULL && strcmp(id, deleteId) == 0) {
+                found = 1;
+                break;
+            }
+        }
+        fclose(originalFile);
+
+        if (found) {
+            // ถ้าเจอ ID ค่อยเริ่มกระบวนการลบ
+            FILE *origFile = fopen("test.csv", "r");
+            FILE *tempFile = fopen("temp.csv", "w");
+
+            if (origFile == NULL || tempFile == NULL) {
+                printf("Error: เกิดข้อผิดพลาดในการเปิดไฟล์\n");
+                if (origFile) fclose(origFile);
+                if (tempFile) fclose(tempFile);
+                return;
+            }
+
+            while (fgets(line, sizeof(line), origFile)) {
+                char tempLine[1024];
+                strcpy(tempLine, line);
+                char *id = strtok(tempLine, ",");
+                if (id == NULL || strcmp(id, deleteId) != 0) {
+                    fprintf(tempFile, "%s", line);
+                }
+            }
+
+            fclose(origFile);
+            fclose(tempFile);
+
+            remove("test.csv");
+            rename("temp.csv", "test.csv");
+            
+            printf("Success: ลบข้อมูล ReceiptID: %s เรียบร้อยแล้ว\n\n", deleteId);
+            break; // ออกจาก loop while(1)
+        } else {
+            printf("ไม่พบข้อมูล ReceiptID: %s เพื่อทำการลบ, กรุณาลองใหม่อีกครั้ง\n\n", deleteId);
+        }
     }
 }
 
