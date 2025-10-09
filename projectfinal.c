@@ -23,7 +23,14 @@ void clearInputBuffer() {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
 }
-
+// --- ฟังก์ชันเสริมสำหรับตัดช่องว่างนำหน้า ---
+char* trimLeadingSpaces(char* str) {
+    if (str == NULL) return NULL;
+    while (isspace((unsigned char)*str)) {
+        str++;
+    }
+    return str;
+}
 // ============== 🧾 ฟังก์ชันอ่านข้อมูล (Choice 1) - แก้ไขปัญหาการแสดงผล ==============
 void ReadCsv() {
     FILE *Read = fopen("test.csv", "r");
@@ -58,10 +65,10 @@ void ReadCsv() {
         }
 
         // --- ส่วนที่แก้ไขที่ 2: ปรับปรุงการแยกข้อมูล ---
-        char *id = strtok(line, ",");
-        char *name = strtok(NULL, ",");
-        char *fine = strtok(NULL, ",");
-        char *date = strtok(NULL, ","); // อ่านข้อมูลส่วนที่ 4
+        char *id = trimLeadingSpaces(strtok(line, ","));
+        char *name = trimLeadingSpaces(strtok(NULL, ","));
+        char *fine = trimLeadingSpaces(strtok(NULL, ","));
+        char *date = trimLeadingSpaces(strtok(NULL, ",")); // อ่านข้อมูลส่วนที่ 4
 
         if (id && name && fine && date) {
             strcpy(receiptIds[recordCount], id);
