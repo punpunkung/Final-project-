@@ -643,6 +643,7 @@ int main() {
         printf("5) ลบข้อมูลการจ่ายค่าปรับ\n");
         printf("6) ออกจากโปรแกรม\n");
         printf("7) Run Unit Tests\n");
+        printf("8) Run E2E Test\n");
         printf("เลือกดำเนินการ: ");
         
         if (scanf("%d", &choice) != 1) {
@@ -679,6 +680,12 @@ int main() {
             
             case 7:
                 run_all_tests();
+                break;
+            case 8:
+                printf("\n--- Starting End-to-End Test (C Version)... ---\n\n");
+                // ใช้ฟังก์ชัน system() เพื่อรันโปรแกรม E2E Test ที่คอมไพล์แล้ว
+                system("./run_e2e_test"); 
+                printf("\n--- End-to-End Test (C Version) Finished. ---\n\n");
                 break;
 
             default: // ทำงานเมื่อไม่มี case ไหนตรงกับเงื่อนไข (เหมือนกับ else ตัวสุดท้าย)
