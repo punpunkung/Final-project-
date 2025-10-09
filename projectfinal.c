@@ -4,9 +4,10 @@
 #include <ctype.h>
 #include <time.h> // เพิ่มเข้ามาเพื่อใช้ฟังก์ชันเกี่ยวกับสตริง เช่น strstr, strcmp
 
-char csv_filename[50] = "test.csv";
-
 #include "unittests.h"
+#include "e2e_test.h"
+
+char csv_filename[50] = "test.csv";
 
 // --- Function Prototypes ---
 void clearInputBuffer();
@@ -682,10 +683,7 @@ int main() {
                 run_all_tests();
                 break;
             case 8:
-                printf("\n--- Starting End-to-End Test (C Version)... ---\n\n");
-                // ใช้ฟังก์ชัน system() เพื่อรันโปรแกรม E2E Test ที่คอมไพล์แล้ว
-                system("./run_e2e_test"); 
-                printf("\n--- End-to-End Test (C Version) Finished. ---\n\n");
+                run_e2e_test();
                 break;
 
             default: // ทำงานเมื่อไม่มี case ไหนตรงกับเงื่อนไข (เหมือนกับ else ตัวสุดท้าย)
