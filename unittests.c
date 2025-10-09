@@ -3,8 +3,6 @@
 #include <ctype.h>
 #include "unittests.h" // Include "สารบัญ" ของตัวเอง
 
-// --- โค้ดทั้งหมดจาก unittests.h เดิม ย้ายมาอยู่ที่นี่ ---
-
 // Forward declaration of functions from the main file that we need to test
 void toLowerCase(char *str);
 int isValidDate(const char *dateStr);
