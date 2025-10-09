@@ -82,7 +82,7 @@ char* trimLeadingSpaces(char* str) {
 
 // ============== 🧾 ฟังก์ชันอ่านข้อมูล (Choice 1) - แก้ไขปัญหาการแสดงผล ==============
 void ReadCsv() {
-    FILE *Read = fopen("csv_filename", "r");
+    FILE *Read = fopen(csv_filename, "r");
     if (Read == NULL) {
         printf("Error: ไม่สามารถเปิดไฟล์ test.csv ได้ หรือไฟล์ยังไม่มีข้อมูล\n\n");
         return;
@@ -201,7 +201,7 @@ int isValidDate(const char *dateStr) {
 
 
 void generateNextId(char* nextId) {
-    FILE *file = fopen("csv_filename", "r");
+    FILE *file = fopen(csv_filename, "r");
     char line[256];
     char lastId[10] = "F000";
 
@@ -273,7 +273,7 @@ void AddFineData() {
     }
     // ---------------------------------------------
 
-    FILE *Add = fopen("csv_filename", "a");
+    FILE *Add = fopen(csv_filename, "a");
     if (Add == NULL) {
         printf("Error: ไม่สามารถเปิดไฟล์เพื่อเขียนได้\n");
     } else {
@@ -302,7 +302,7 @@ void SearchFineData() {
     char line[1024];
     int found = 0;
 
-    FILE *Search = fopen("csv_filename", "r");
+    FILE *Search = fopen(csv_filename, "r");
     if (Search == NULL) {
         printf("Error: ไม่สามารถเปิดไฟล์ได้\n");
         return;
@@ -400,7 +400,7 @@ void UpdateFineData() {
             return; // กลับเมนูหลัก
         }
 
-        FILE *originalFile = fopen("csv_filename", "r");
+        FILE *originalFile = fopen(csv_filename, "r");
         if (originalFile == NULL) {
             printf("Error: ไม่สามารถเปิดไฟล์ต้นฉบับได้\n");
             return;
@@ -503,7 +503,7 @@ void UpdateFineData() {
 
             if (confirm == 'y' || confirm == 'Y') {
                 // --- 5. เริ่มกระบวนการเขียนไฟล์ ---
-                FILE *origFile = fopen("csv_filename", "r");
+                FILE *origFile = fopen(csv_filename, "r");
                 FILE *tempFile = fopen("temp.csv", "w");
 
                 fgets(line, sizeof(line), origFile);
@@ -560,7 +560,7 @@ void DeleteFineData() {
             return;
         }
 
-        FILE *originalFile = fopen("csv_filename", "r");
+        FILE *originalFile = fopen(csv_filename, "r");
         if (originalFile == NULL) {
             printf("Error: ไม่สามารถเปิดไฟล์ต้นฉบับได้\n");
             return;
@@ -596,7 +596,7 @@ void DeleteFineData() {
 
             if (confirm == 'y' || confirm == 'Y') {
                 // --- เริ่มกระบวนการเขียนไฟล์ใหม่ ---
-                FILE *origFile = fopen("csv_filename", "r");
+                FILE *origFile = fopen(csv_filename, "r");
                 FILE *tempFile = fopen("temp.csv", "w");
 
                 fgets(line, sizeof(line), origFile); // อ่าน Header
